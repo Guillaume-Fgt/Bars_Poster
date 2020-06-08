@@ -7,6 +7,6 @@ You can change some parameters at the beginning of the code: OUT_WIDTH, OUT_HEIG
 
 ![](test.gif)
 
-![](The Irishman.jpg)
+![](Irishman.jpg)
 
 ![](Joker.jpg)
