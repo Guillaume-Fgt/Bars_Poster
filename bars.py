@@ -33,20 +33,26 @@ def show_image(image: cv2.Mat) -> None:
 
 
 def generate_barcode(video_path: Path, output_filename: Path) -> None:
-    with video_capture(video_path.as_posix()) as cap:
+    video_path_str = video_path.as_posix()
+    with video_capture(video_path_str) as cap:
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        logging.info(f"Total number of frames: {total_frames}")
         nbr_of_captured_frames = np.arange(1, number_of_cuts + 1)
         fr_pos = int(
             total_frames / (len(nbr_of_captured_frames) + 2)
         )  # always keep 2 block frames at beginning & end
         frame_positions_list = [i * fr_pos for i in nbr_of_captured_frames]
         logging.info(frame_positions_list)
-        frame_show(frame_positions_list, cap)
+        images = frame_position_to_image(frame_positions_list, cap)
+        palette = image_in_column(images)
+        show_image(palette)
 
         while question_change():
             positions = question_frame(frame_positions_list)
             modify_frame_list(frame_positions_list, positions)
-            frame_show(frame_positions_list, cap)
+            images = frame_position_to_image(frame_positions_list, cap)
+            palette = image_in_column(images)
+            show_image(palette)
 
         avg_cols = ROI_capture_manual(frame_positions_list, cap, nbr_of_captured_frames)
         concatenated = np.concatenate(avg_cols, axis=1)
@@ -55,26 +61,34 @@ def generate_barcode(video_path: Path, output_filename: Path) -> None:
         )
         barcode = cv2.resize(concatenated, (OUT_WIDTH, OUT_HEIGHT))
         cv2.imwrite(output_filename.as_posix(), barcode)
+        cv2.destroyAllWindows()
         show_image(barcode)
 
 
-def resize_frame(frame_name, scale_percent):
+def resize_frame(frame_name: cv2.Mat, scale_percent: int) -> cv2.Mat:
+    """resize a frame given a wished percentage. Keeps original aspect ratio"""
     width = int(frame_name.shape[1] * scale_percent / 100)
     height = int(frame_name.shape[0] * scale_percent / 100)
-    dim = (width, height)
-    frame_resized = cv2.resize(frame_name, dim)
-    return frame_resized
+    return cv2.resize(frame_name, (width, height))
 
 
-def frame_show(frame_list, cap: cv2.VideoCapture) -> None:
-    frame_column = []
-    palette = []
-    for i in frame_list:
+def frame_position_to_image(
+    frame_positions: list[int], cap: cv2.VideoCapture
+) -> list[cv2.Mat]:
+    """transform a list of frame position into opencv images"""
+    frame_images = []
+    for i in frame_positions:
         cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-        _, frame = cap.read()
-        frame_column.append(resize_frame(frame, 10))
-    palette = np.concatenate(frame_column, axis=0)
-    show_image(palette)
+        _, frame_image = cap.read()
+        frame_images.append(frame_image)
+    return frame_images
+
+
+def image_in_column(images: list[cv2.Mat]) -> cv2.Mat:
+    """organize a list of opencv images in column"""
+    palette = []
+    palette = np.concatenate(images, axis=0)
+    return palette
 
 
 def modify_frame_list(list: list[int], position: list[int]) -> list[int]:
